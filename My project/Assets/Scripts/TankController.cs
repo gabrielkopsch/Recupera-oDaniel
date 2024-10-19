@@ -42,14 +42,18 @@ public class TankController : MonoBehaviourPun, IDamageable
         // Apenas o jogador local controla o tanque
         if (!photonView.IsMine)
         {
-            Destroy(GetComponent<Rigidbody2D>());
+         //   Destroy(GetComponent<Rigidbody2D>());
         }
     }
 
     void Update()
     {
+       Initialize();
+    }
+    private void Initialize()
+    {
         ClampPosition();
-        if (photonView.IsMine)
+        if (!PhotonView.IsMine)
         {
             HandleMovement();
 
@@ -59,6 +63,7 @@ public class TankController : MonoBehaviourPun, IDamageable
             }
         }
     }
+
 
     void HandleMovement()
     {
@@ -73,17 +78,36 @@ public class TankController : MonoBehaviourPun, IDamageable
     {
         if (bulletPrefab && firePoint)
         {
+<<<<<<< Updated upstream
             PhotonNetwork.Instantiate(bulletPrefab.name, firePoint.position, firePoint.rotation);
         }
     }
 
     public void TakeDamage(int damageAmount)
+=======
+            // Instancia o projétil apenas localmente e deixa o script Bullet cuidar da sincronização
+            Bullet bullet = GetComponent<Bullet>();
+            if (bullet != null)
+            {
+                bullet.Fire();
+            }
+        }
+    }
+ 
+    public void TakeDamage(float damageAmount)
+    {
+        photonView.RPC("RPCTakeDamage", RpcTarget.All, damageAmount);
+    }
+
+    [PunRPC]
+    void RPCTakeDamage(int damageAmount)
+>>>>>>> Stashed changes
     {
         currentHealth -= damageAmount;
 
         if (currentHealth <= 0)
         {
-            Die();
+          
         }
     }
 
