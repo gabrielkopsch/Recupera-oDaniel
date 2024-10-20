@@ -1,17 +1,17 @@
 using Photon.Pun;
 using UnityEngine;
 
-public class TankController : MonoBehaviourPun, IDamageable
+public class TankController : MonoBehaviourPun
 {
     public float moveSpeed = 5f;
     public float rotateSpeed = 150f;
-    public int maxHealth = 100;
-    private int currentHealth;
+    public float maxHealth = 100;
+    private float currentHealth;
     public Vector2 minBounds;   // Limite mínimo para X e Y
     public Vector2 maxBounds;   // Limite máximo para X e Y
 
-    public GameObject bulletPrefab;
-    public Transform firePoint;
+    public GameObject bulletPrefab; // Prefab da bala
+    public Transform firePoint;     // Ponto de disparo
 
     void ClampPosition()
     {
@@ -39,7 +39,11 @@ public class TankController : MonoBehaviourPun, IDamageable
         // Apenas o jogador local controla o tanque
         if (!photonView.IsMine)
         {
-            Destroy(GetComponent<Rigidbody2D>());
+            Rigidbody2D rb = GetComponent<Rigidbody2D>();
+            if (rb != null)
+            {
+                rb.isKinematic = true; // Torna o Rigidbody2D kinematic
+            }
         }
     }
 
@@ -70,29 +74,24 @@ public class TankController : MonoBehaviourPun, IDamageable
     {
         if (bulletPrefab && firePoint)
         {
-            // Instancia o projétil apenas localmente e deixa o script Bullet cuidar da sincronização
-            Bullet bullet = GetComponent<Bullet>();
-            if (bullet != null)
+            // Instancia a bala na rede usando PhotonNetwork.Instantiate
+            GameObject bullet = PhotonNetwork.Instantiate(bulletPrefab.name, firePoint.position, firePoint.rotation, 0);
+
+            // Configura o PhotonView do jogador que disparou a bala na bala instanciada
+            Bullet bulletComponent = bullet.GetComponent<Bullet>();
+            if (bulletComponent != null)
             {
-                bullet.Fire();
+                bulletComponent.Initialize(photonView); // Passa o PhotonView do jogador que disparou
             }
         }
     }
 
-    
-
-
-    public void TakeDamage(float damageAmount)
-    {
-        photonView.RPC("RPCTakeDamage", RpcTarget.All, damageAmount);
-    }
-
     [PunRPC]
-    void RPCTakeDamage(int damageAmount)
+    public void ApplyDamage(float damage)
     {
-        currentHealth -= damageAmount;
-
-        if (currentHealth <= 0)
+        maxHealth -= damage;
+        Debug.Log("Dano recebido: " + damage + ", Saúde restante: " + maxHealth);
+        if (maxHealth <= 0)
         {
             Die();
         }

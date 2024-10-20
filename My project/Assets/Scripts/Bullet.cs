@@ -1,79 +1,53 @@
 using UnityEngine;
 using Photon.Pun;
 
-public class Bullet : MonoBehaviourPun, IWeapon
+public class Bullet : MonoBehaviourPun
 {
-    public GameObject bulletPrefab;       // Prefab do projétil
-    public Transform firePoint;           // Ponto de onde o projétil será disparado
-    public float reloadTime = 1f;         // Tempo de recarga entre disparos
-    private float nextFireTime = 0f;      // Controla o tempo até o próximo disparo
-    public float bulletSpeed = 30f;       // Aumente a velocidade da bala para um valor maior
-    public float damageAmount = 20f;      // Dano causado pela bala
+    public float bulletSpeed = 30f; // Velocidade da bala
+    public float damageAmount = 20f; // Dano causado pela bala
     private PhotonView shooterPhotonView; // PhotonView do jogador que disparou a bala
-    public float bulletLifeTime = 40f;
-    public float ReloadTime
-    {
-        get { return reloadTime; }
-    }
 
-    void Update()
+    void Start()
     {
-        // Apenas o dono do objeto pode disparar
-        if (photonView.IsMine && Input.GetKeyDown(KeyCode.Space))
+        // Configura o movimento da bala imediatamente após a instância
+        Rigidbody2D rb = GetComponent<Rigidbody2D>();
+        if (rb != null)
         {
-            Fire();
+            rb.velocity = transform.up * bulletSpeed; // Aplica a velocidade na direção correta
+        }
+        else
+        {
+            Debug.LogError("Rigidbody2D não encontrado na bala!"); // Log de erro se não houver Rigidbody2D
         }
     }
 
-    [PunRPC]
+    public void Initialize(PhotonView shooter)
+    {
+        shooterPhotonView = shooter; // Configura o PhotonView do jogador que disparou
+    }
+
     void OnTriggerEnter2D(Collider2D collision)
     {
+        Debug.Log("Colidiu com: " + collision.gameObject.name); // Verifica qual objeto a bala está colidindo
+
         // Ignora colisão com o jogador que disparou a bala
         if (collision.gameObject.GetComponent<PhotonView>() == shooterPhotonView)
         {
-            return;  // Evita que a bala colida com o jogador que a disparou
+            Debug.Log("Ignorando colisão com o jogador que disparou.");
+            return; // Ignora a colisão
         }
 
-        PhotonView pv = PhotonView.Get(this);
-
-        TankController tankController = collision.gameObject.GetComponent<TankController>();
-        
-        if(tankController != null && !tankController.photonView.IsMine)
+        // Verifique se o jogador inimigo foi atingido
+        TankController tankController = collision.GetComponent<TankController>();
+        if (tankController != null)
         {
-            Debug.Log("Colidiu com um tanque ou outro jogador!");
-
-            // Desativa o projétil em todos os clientes
-            pv.RPC("DisableGameObject", RpcTarget.All);
+            Debug.Log("Bala colidiu com um TankController!");
+            tankController.ApplyDamage(damageAmount); // Aplica dano ao jogador
+            PhotonNetwork.Destroy(gameObject); // Destrói a bala após a colisão
         }
-    }
-
-    [PunRPC]
-    void DisableGameObject()
-    {
-        gameObject.SetActive(false);  // Desativa o objeto (a bala) ao colidir
-    }
-
-    public void Fire()
-    {
-        if (Time.time >= nextFireTime)
+        else
         {
-            // Instancia a bala na rede usando PhotonNetwork.Instantiate
-            GameObject bullet = PhotonNetwork.Instantiate("bulletPrefab", firePoint.position, firePoint.rotation);
-
-            // Referencia o PhotonView do jogador que disparou a bala
-            Bullet bulletComponent = bullet.GetComponent<Bullet>();
-            bulletComponent.shooterPhotonView = this.photonView;
-
-            // Aplica movimento à bala imediatamente após a instância
-            Rigidbody2D rb = bullet.GetComponent<Rigidbody2D>();
-            if (rb != null)
-            {
-                // Aplique a velocidade na direção do firePoint
-                rb.velocity = firePoint.up * bulletSpeed; // Use up para a direção correta
-            }
-
-            // Define o tempo para o próximo disparo
-            nextFireTime = Time.time + reloadTime;
+            Debug.Log("Colisão não com um TankController!"); // Log de depuração
         }
     }
 }
